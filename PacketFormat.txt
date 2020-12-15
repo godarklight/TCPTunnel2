@@ -1,0 +1,18 @@
+Bytes 0-3 "DTT2" (Dark TCP Tunnel 2)
+Bytes 4-7 Connection ID: random byte[4]
+Bytes 8-9 Message Type: short
+Bytes 10-11 Mesage Length: short
+Bytes 12-13 Sequence number: short
+Bytes 14-15 Acknowlegde number: short
+[Optional payload]
+
+Message types (when sent):
+0 Heartbeat (100ms of inactivity)
+1 Stream data (when there is unacked data)
+2 Connection end (at the end of a TCP connection)
+10 Rate send (Initial setup every second until acknowledged)
+11 Rate acknowledge (When rate send received)
+
+Payloads:
+1: bytes 0-499 The stream data itself
+11: bytes 0-3 The max download rate of this connection in KB/s: int
