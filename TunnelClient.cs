@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace TCPTunnel2
 {
-    class TunnelClient
+    public class TunnelClient
     {
         private bool running = true;
         private TunnelSettings settings;

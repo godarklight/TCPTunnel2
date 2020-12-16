@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace TCPTunnel2
 {
-    class TunnelServer
+    public class TunnelServer
     {
         private TunnelSettings settings;
         public TunnelServer(TunnelSettings settings, UDPServer udpServer)

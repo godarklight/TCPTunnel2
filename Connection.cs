@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace TCPTunnel2
 {
-    class Connection
+    public class Connection
     {
         private int connectionID;
         public IPEndPoint sendEndpoint;

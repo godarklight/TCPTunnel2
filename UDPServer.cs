@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace TCPTunnel2
 {
-    class UDPServer
+    public class UDPServer
     {
         private bool running = true;
         private TunnelSettings settings;
