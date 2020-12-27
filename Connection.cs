@@ -104,7 +104,6 @@ namespace TCPTunnel2
                     tcpSendQueue.Enqueue(payload);
                     while (heldMessages.TryRemove(receiveSequence, out ByteArray heldData))
                     {
-                        Console.WriteLine($"Playback message sequence: {receiveSequence}, left: {heldMessages.Count}");
                         receiveSequence++;
                         tcpSendQueue.Enqueue(heldData);
                     }
@@ -118,7 +117,6 @@ namespace TCPTunnel2
                         {
                             //A message from the future out of sequence
                             heldMessages.TryAdd(messageSequence, payload);
-                            Console.WriteLine($"Store message sequence: {messageSequence}");
                             releaseData = false;
                         }
                     }
@@ -140,22 +138,8 @@ namespace TCPTunnel2
                 return false;
             }
             long currentTime = DateTime.UtcNow.Ticks;
-            //Send retransmits
             OutgoingMessage om;
-            if (udpDoubleSendQueue.TryPeek(out om))
-            {
-                if (currentTime > om.sendTime)
-                {
-                    if (udpDoubleSendQueue.TryDequeue(out om))
-                    {
-                        //Send to the retransmit queue
-                        om.sendTime = currentTime + (settings.retransmit * TimeSpan.TicksPerMillisecond);
-                        udpRetransmitSendQueue.Enqueue(om);
-                        //Send
-                        sendMessage = om.data;
-                    }
-                }
-            }
+            //Send retransmits
             if (sendMessage == null && udpRetransmitSendQueue.TryPeek(out om))
             {
                 if (currentTime > om.sendTime)
@@ -187,13 +171,51 @@ namespace TCPTunnel2
                     }
                 }
             }
-            //Take new waiting data and build a message if we have less than 1000 queue'd packets
+            //Send double sends
+            if (sendMessage == null)
+            {
+                bool skipping = true;
+                while (skipping)
+                {
+                    if (udpDoubleSendQueue.TryPeek(out om))
+                    {
+                        //This isn't ready to transmit yet.
+                        if (om.sendTime > currentTime)
+                        {
+                            break;
+                        }
+                    }
+                    if (udpDoubleSendQueue.TryDequeue(out om))
+                    {
+                        if (AckGreaterThan(om.sequence, sendAck))
+                        {
+                            //Send to the retransmit queue
+                            om.sendTime = currentTime + (settings.retransmit * TimeSpan.TicksPerMillisecond);
+                            udpRetransmitSendQueue.Enqueue(om);
+                            //Send
+                            sendMessage = om.data;
+                            break;
+                        }
+                        else
+                        {
+                            //Already ACK'd, skip it
+                            Recycler.Release(om.data);
+                        }
+                    }
+                    else
+                    {
+                        skipping = false;
+                    }
+                }
+            }
+
+            //Take new waiting data and build a message if we have less than 10000 queue'd packets
             int ackDiff = sendSequence - sendAck;
             if (ackDiff < 0)
             {
                 ackDiff = ackDiff + ushort.MaxValue;
             }
-            if (sendMessage == null && ackDiff < 1000 && udpSendQueue.Count > 0)
+            if (sendMessage == null && ackDiff < 10000 && udpSendQueue.Count > 0)
             {
                 ByteArray payload = Recycler.Grab();
                 ByteArray addMessage;
@@ -229,11 +251,14 @@ namespace TCPTunnel2
                 //Send
                 sendMessage = om.data;
             }
+
             //Send heartbeats
             if (sendMessage == null && currentTime > sendTime)
             {
                 sendMessage = GetHeartbeat();
             }
+
+            //Send
             if (sendMessage != null)
             {
                 sendTime = currentTime + (TimeSpan.TicksPerMillisecond * 100);
@@ -345,7 +370,7 @@ namespace TCPTunnel2
         private bool AckGreaterThan(short lhs, short rhs)
         {
             int distance = Math.Abs(lhs - rhs);
-            bool distanceBig = distance > Int16.MaxValue / 4;
+            bool distanceBig = distance > Int16.MaxValue / 2;
             if (distanceBig)
             {
                 return lhs < rhs;

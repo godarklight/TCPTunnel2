@@ -12,8 +12,8 @@ namespace TCPTunnel2
         //Max connections
         public int connections = 10;
         //Rate settings (KB/s)
-        public int connectionUpload = 512;
-        public int connectionDownload = 512;
+        public int connectionUpload = 1024;
+        public int connectionDownload = 1024;
         public int globalUpload = 2048;
         public int globalDownload = 2048;
         //Retransmit timers (milliseconds)

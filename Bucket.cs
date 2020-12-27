@@ -18,6 +18,8 @@ namespace TCPTunnel2
         {
             this.bucketMax = bucketMax * 1024;
             this.bucketRate = bucketRate * 1024;
+            this.bucketBytes = bucketMax;
+            this.lastTime = DateTime.UtcNow.Ticks;
             this.parent = parent;
         }
 

@@ -147,7 +147,7 @@ namespace TCPTunnel2
                     Bucket newBucket = new Bucket(settings.connectionUpload, settings.connectionUpload, globalLimit);
                     Connection newConnection = new Connection(connectionID, settings, newClient, this, newBucket);
                     newConnection.sendEndpoint = receiveAddress;
-                    connections[connectionID] = newConnection;
+                    connections.TryAdd(connectionID, newConnection);
                     Console.WriteLine($"New connection {connectionID} from {receiveAddress} mapped to {newClient.Client.LocalEndPoint}");
                 }
                 else
@@ -223,6 +223,11 @@ namespace TCPTunnel2
         public void SendEvent()
         {
             sendEvent.Set();
+        }
+
+        public ConcurrentDictionary<int, Connection> GetConnections()
+        {
+            return connections;
         }
     }
 }
