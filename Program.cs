@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 
 namespace TCPTunnel2
 {
@@ -31,6 +32,10 @@ namespace TCPTunnel2
                 if (key == (int)'q')
                 {
                     running = false;
+                }
+                if (key == -1)
+                {
+                    Thread.Sleep(100);
                 }
             }
             if (tunnelClient != null)

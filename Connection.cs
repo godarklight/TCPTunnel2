@@ -83,6 +83,8 @@ namespace TCPTunnel2
             {
                 //Don't care
             }
+            //Signal the sender thread to exit
+            tcpSendEvent.Set();
         }
 
         public void HandleUDPData(short messageType, short messageLength, short messageSequence, short messageACK, ByteArray payload, IPEndPoint receiveEndpoint)
