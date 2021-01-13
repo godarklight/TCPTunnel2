@@ -142,6 +142,7 @@ namespace TCPTunnel2
                     {
                         remoteDownloadSpeed = IPAddress.NetworkToHostOrder(remoteDownloadSpeed);
                     }
+                    remoteDownloadSpeed = remoteDownloadSpeed * 1024;
                     uploadBucket.LimitRate(remoteDownloadSpeed, remoteDownloadSpeed);
                     sendRateAcknowledge = true;
                 }

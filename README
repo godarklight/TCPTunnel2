@@ -1,0 +1,9 @@
+This program converts a TCP stream into a UDP one, tunnelling to this program running in server mode.
+
+It helps the TCP stream keep flowing smoothly for high latencies by:
+1. Retransmitting all packets again 5ms (configurable)
+2. Retransmitting non-acknowledged packets again after 100ms (configurable)
+3. Running at a fixed send rate of 1MB/s (configurable)
+
+This program trades bandwidth to reduce latency, if you have 350ms round trip time ping, you will send every packet 4 times.
+It also completely ignores TCP's send rate reduction on lossy links for those not using the BBR send algorithm.
