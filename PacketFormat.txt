@@ -9,10 +9,10 @@ Bytes 14-15 Acknowlegde number: short
 Message types (when sent):
 0 Heartbeat (100ms of inactivity)
 1 Stream data (when there is unacked data)
-2 Connection end (at the end of a TCP connection)
+2 Connection end (at the end of a TCP connection) - NOT IMPLEMENTED
 10 Rate send (Initial setup every second until acknowledged)
 11 Rate acknowledge (When rate send received)
 
 Payloads:
 1: bytes 0-499 The stream data itself
-11: bytes 0-3 The max download rate of this connection in KB/s: int
+10: bytes 0-3 The max download rate of this connection in KB/s: int

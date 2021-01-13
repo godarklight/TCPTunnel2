@@ -93,5 +93,17 @@ namespace TCPTunnel2
             this.bucketRate = bucketRate;
             this.bucketMax = bucketMax;
         }
+
+        public void LimitRate(long bucketRate, long bucketMax)
+        {
+            if (this.bucketRate > bucketRate)
+            {
+                this.bucketRate = bucketBytes;
+            }
+            if (this.bucketMax > bucketMax)
+            {
+                this.bucketMax = bucketMax;
+            }
+        }
     }
 }

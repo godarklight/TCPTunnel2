@@ -14,8 +14,6 @@ namespace TCPTunnel2
         //Rate settings (KB/s)
         public int connectionUpload = 1024;
         public int connectionDownload = 1024;
-        public int globalUpload = 2048;
-        public int globalDownload = 2048;
         //Retransmit timers (milliseconds)
         public int initialRetransmit = 5;
         public int retransmit = 100;
@@ -64,9 +62,6 @@ namespace TCPTunnel2
                         case "connectionDownload":
                             connectionDownload = int.Parse(split[1]);
                             break;
-                        case "globalUpload":
-                            globalUpload = int.Parse(split[1]);
-                            break;
                         case "initialRetransmit":
                             initialRetransmit = int.Parse(split[1]);
                             break;
@@ -98,9 +93,6 @@ namespace TCPTunnel2
                 sw.WriteLine("# Maximum speed of individual connections, KB/s");
                 sw.WriteLine($"connectionUpload = {connectionUpload}");
                 sw.WriteLine($"connectionDownload = {connectionDownload}");
-                sw.WriteLine();
-                sw.WriteLine("# Maximum speed of all connections, KB/s");
-                sw.WriteLine($"globalUpload = {globalUpload}");
                 sw.WriteLine();
                 sw.WriteLine("# Retransmit timers, ms. Set initial retransmit to 0 to disable double send");
                 sw.WriteLine($"initialRetransmit = {initialRetransmit}");

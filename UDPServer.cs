@@ -11,6 +11,7 @@ namespace TCPTunnel2
     {
         private bool running = true;
         private TunnelSettings settings;
+        private Statistics statistics;
         private byte[] readBuffer = new byte[1500];
         private Thread sendTask;
         private Thread receiveTask;
@@ -19,13 +20,12 @@ namespace TCPTunnel2
         private ConcurrentDictionary<int, Connection> connections = new ConcurrentDictionary<int, Connection>();
         private UdpClient udpClient;
         public Func<TcpClient> ConnectLocalTCPConnection;
-        private Bucket globalLimit;
         private Random random = new Random();
 
-        public UDPServer(TunnelSettings settings)
+        public UDPServer(TunnelSettings settings, Statistics statistics)
         {
             this.settings = settings;
-            globalLimit = new Bucket(settings.globalUpload, settings.globalUpload, null);
+            this.statistics = statistics;
             udpClient = new UdpClient(AddressFamily.InterNetworkV6);
             udpClient.Client.DualMode = true;
             udpClient.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, settings.udpPort));
@@ -41,8 +41,8 @@ namespace TCPTunnel2
         {
             int connectionID = random.Next();
             Console.WriteLine($"TCP connected {connectionID} from {tcpClient.Client.RemoteEndPoint}");
-            Bucket newBucket = new Bucket(settings.connectionUpload, settings.connectionUpload, globalLimit);
-            Connection c = new Connection(connectionID, settings, tcpClient, this, newBucket);
+            Bucket newBucket = new Bucket(settings.connectionUpload, settings.connectionUpload, null);
+            Connection c = new Connection(connectionID, settings, tcpClient, this, newBucket, statistics);
             connections.TryAdd(connectionID, c);
             int portIndex = settings.tunnelServer.LastIndexOf(":");
             string lhs = settings.tunnelServer.Substring(0, portIndex);
@@ -84,6 +84,8 @@ namespace TCPTunnel2
                 {
                     EndPoint sendAddress = listenAny;
                     int bytesRead = udpClient.Client.ReceiveFrom(readBuffer, ref sendAddress);
+                    statistics.receivedPackets++;
+                    statistics.receivedBytes += bytesRead;
                     if (bytesRead > 0)
                     {
                         Process(readBuffer, bytesRead, sendAddress as IPEndPoint);
@@ -144,8 +146,8 @@ namespace TCPTunnel2
                         Console.WriteLine($"Unable to connect to {settings.tcpPort}, is the server down?");
                         return;
                     }
-                    Bucket newBucket = new Bucket(settings.connectionUpload, settings.connectionUpload, globalLimit);
-                    Connection newConnection = new Connection(connectionID, settings, newClient, this, newBucket);
+                    Bucket newBucket = new Bucket(settings.connectionUpload, settings.connectionUpload, null);
+                    Connection newConnection = new Connection(connectionID, settings, newClient, this, newBucket, statistics);
                     newConnection.sendEndpoint = receiveAddress;
                     connections.TryAdd(connectionID, newConnection);
                     Console.WriteLine($"New connection {connectionID} from {receiveAddress} mapped to {newClient.Client.LocalEndPoint}");
@@ -181,11 +183,6 @@ namespace TCPTunnel2
                     {
                         continue;
                     }
-                    //Out of data for all connections, so we should wait here
-                    while (!globalLimit.TestBytes(500))
-                    {
-                        Thread.Sleep(1);
-                    }
                     if (!kvp.Value.Check())
                     {
                         disconnectID = kvp.Key;
@@ -198,6 +195,8 @@ namespace TCPTunnel2
                             {
                                 sentData = true;
                                 int bytesSent = udpClient.Send(sendBytes.data, sendBytes.length, kvp.Value.sendEndpoint);
+                                statistics.sentPackets++;
+                                statistics.sentBytes += sendBytes.length;
                             }
                         }
                         catch (Exception e)

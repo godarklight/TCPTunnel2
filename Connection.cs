@@ -35,14 +35,19 @@ namespace TCPTunnel2
         private long disconnectTime;
         private long sendTime;
         private TunnelSettings settings;
+        private Statistics statistics;
+        private long nextRateMessageTime;
+        private bool receivedRateMessage;
+        private bool sendRateAcknowledge;
 
-        public Connection(int connectionID, TunnelSettings settings, TcpClient tcpClient, UDPServer udpServer, Bucket uploadBucket)
+        public Connection(int connectionID, TunnelSettings settings, TcpClient tcpClient, UDPServer udpServer, Bucket uploadBucket, Statistics statistics)
         {
             this.connectionID = connectionID;
             this.tcpClient = tcpClient;
             this.udpServer = udpServer;
             this.uploadBucket = uploadBucket;
             this.settings = settings;
+            this.statistics = statistics;
             tcpSendTask = new Thread(new ThreadStart(SendLoop));
             tcpSendTask.Name = "Connection.SendLoop." + connectionID;
             tcpSendTask.Start();
@@ -103,10 +108,14 @@ namespace TCPTunnel2
                 {
                     releaseData = false;
                     receiveSequence++;
+                    statistics.receivedUniquePackets++;
+                    statistics.receivedUniqueBytes += payload.length;
                     tcpSendQueue.Enqueue(payload);
                     while (heldMessages.TryRemove(receiveSequence, out ByteArray heldData))
                     {
                         receiveSequence++;
+                        statistics.receivedUniquePackets++;
+                        statistics.receivedUniqueBytes += payload.length;
                         tcpSendQueue.Enqueue(heldData);
                     }
                     tcpSendEvent.Set();
@@ -124,6 +133,23 @@ namespace TCPTunnel2
                     }
                 }
             }
+            if (messageType == 10)
+            {
+                if (payload.length == 4)
+                {
+                    int remoteDownloadSpeed = BitConverter.ToInt32(payload.data, 0);
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        remoteDownloadSpeed = IPAddress.NetworkToHostOrder(remoteDownloadSpeed);
+                    }
+                    uploadBucket.LimitRate(remoteDownloadSpeed, remoteDownloadSpeed);
+                    sendRateAcknowledge = true;
+                }
+            }
+            if (messageType == 11)
+            {
+                receivedRateMessage = true;
+            }
             if (payload != null && releaseData)
             {
                 Recycler.Release(payload);
@@ -140,6 +166,20 @@ namespace TCPTunnel2
                 return false;
             }
             long currentTime = DateTime.UtcNow.Ticks;
+            //Let the other side know they can stop sending the rate setup message
+            if (sendRateAcknowledge)
+            {
+                sendRateAcknowledge = false;
+                sendMessage = GetRateAcknowledge();
+                return true;
+            }
+            //Connection setup, prevents the other side from sending too fast
+            if (!receivedRateMessage && currentTime > nextRateMessageTime)
+            {
+                nextRateMessageTime = currentTime + TimeSpan.TicksPerSecond;
+                sendMessage = GetRate();
+                return true;
+            }
             OutgoingMessage om;
             //Send retransmits
             if (sendMessage == null && udpRetransmitSendQueue.TryPeek(out om))
@@ -210,7 +250,6 @@ namespace TCPTunnel2
                     }
                 }
             }
-
             //Take new waiting data and build a message if we have less than 10000 queue'd packets
             int ackDiff = sendSequence - sendAck;
             if (ackDiff < 0)
@@ -252,6 +291,8 @@ namespace TCPTunnel2
                 }
                 //Send
                 sendMessage = om.data;
+                statistics.sentUniquePackets++;
+                statistics.sentUniqueBytes += payload.length;
             }
 
             //Send heartbeats
@@ -278,6 +319,19 @@ namespace TCPTunnel2
         public ByteArray GetHeartbeat()
         {
             return GetUDPMessageData(0, 0, null);
+        }
+
+        public ByteArray GetRate()
+        {
+            ByteArray sendData = Recycler.Grab();
+            sendData.length = 4;
+            WriteInt32(settings.connectionDownload, sendData.data, 0);
+            return GetUDPMessageData(10, 0, sendData);
+        }
+
+        public ByteArray GetRateAcknowledge()
+        {
+            return GetUDPMessageData(11, 0, null);
         }
 
         private ByteArray GetUDPMessageData(short type, short sequence, ByteArray payload)
@@ -352,7 +406,7 @@ namespace TCPTunnel2
             }
         }
 
-
+        //Writes in network order
         public static void WriteInt16(int number, byte[] data, int index)
         {
             uint unumber = (uint)number;
@@ -360,6 +414,7 @@ namespace TCPTunnel2
             data[index + 1] = (byte)((unumber) & 0xFF);
         }
 
+        //Writes in network order
         public static void WriteInt32(int number, byte[] data, int index)
         {
             uint unumber = (uint)number;
