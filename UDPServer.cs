@@ -102,12 +102,12 @@ namespace TCPTunnel2
         {
             if (length < 16)
             {
-                Console.WriteLine($"Rejecting short message from {receiveAddress}");
+                //Console.WriteLine($"Rejecting short message from {receiveAddress}");
                 return;
             }
             if (data[0] != 68 || data[1] != 84 || data[2] != 84 || data[3] != 50)
             {
-                Console.WriteLine($"Rejecting non TCPTunnel traffic from {receiveAddress}");
+                //Console.WriteLine($"Rejecting non TCPTunnel traffic from {receiveAddress}");
                 return;
             }
             int connectionID = BitConverter.ToInt32(data, 4);
@@ -125,13 +125,13 @@ namespace TCPTunnel2
             }
             if (messageLength != length - 16)
             {
-                Console.WriteLine($"Rejecting bad payload TCPTunnel traffic from {receiveAddress}");
+                //Console.WriteLine($"Rejecting bad payload TCPTunnel traffic from {receiveAddress}");
                 return;
             }
             //Payload is limited to 500 bytes
             if (messageLength > 500)
             {
-                Console.WriteLine($"Broken payload from {connectionID}");
+                //Console.WriteLine($"Broken payload from {connectionID}");
                 return;
             }
             if (!connections.ContainsKey(connectionID))
@@ -143,7 +143,7 @@ namespace TCPTunnel2
                     if (newClient == null)
                     {
                         //Server down?
-                        Console.WriteLine($"Unable to connect to {settings.tcpPort}, is the server down?");
+                        //Console.WriteLine($"Unable to connect to {settings.tcpPort}, is the server down?");
                         return;
                     }
                     Bucket newBucket = new Bucket(settings.connectionUpload, settings.connectionUpload, null);
@@ -155,7 +155,7 @@ namespace TCPTunnel2
                 else
                 {
                     //We can't do anything client side if we don't have an existing TCP connection, ignore the messages
-                    Console.WriteLine($"Unknown UDP connection {connectionID} in client mode");
+                    //Console.WriteLine($"Unknown UDP connection {connectionID} in client mode");
                     return;
                 }
             }

@@ -32,6 +32,8 @@ namespace TCPTunnel2
         //TCP Send
         private AutoResetEvent tcpSendEvent = new AutoResetEvent(true);
         private ConcurrentQueue<ByteArray> tcpSendQueue = new ConcurrentQueue<ByteArray>();
+        //Efficency mode
+        private int queuedBytes = 0;
         private long disconnectTime;
         private long sendTime;
         private TunnelSettings settings;
@@ -159,7 +161,6 @@ namespace TCPTunnel2
 
         public bool GetUDPMessage(out ByteArray sendMessage)
         {
-
             sendMessage = null;
             //Not enough data to send a packet
             if (!uploadBucket.TestBytes(500))
@@ -181,11 +182,20 @@ namespace TCPTunnel2
                 sendMessage = GetRate();
                 return true;
             }
+            //If we have more than 1 second of data to send, or our bucket is low, let's skip the double send
+            double uploadMaxed = uploadBucket.bucketBytes / (double)uploadBucket.bucketMax;
+            bool efficencyMode = queuedBytes > uploadBucket.bucketMax || uploadMaxed < 0.5d;
+            //Retransmit half as often
+            long efficencyOffset = 0;
+            if (efficencyMode)
+            {
+                efficencyOffset = TimeSpan.TicksPerMillisecond * settings.retransmit;
+            }
             OutgoingMessage om;
             //Send retransmits
             if (sendMessage == null && udpRetransmitSendQueue.TryPeek(out om))
             {
-                if (currentTime > om.sendTime)
+                if (currentTime > om.sendTime + efficencyOffset)
                 {
                     bool skipping = true;
                     while (skipping)
@@ -223,7 +233,7 @@ namespace TCPTunnel2
                     if (udpDoubleSendQueue.TryPeek(out om))
                     {
                         //This isn't ready to transmit yet.
-                        if (om.sendTime > currentTime)
+                        if (om.sendTime > currentTime + efficencyOffset)
                         {
                             break;
                         }
@@ -271,6 +281,7 @@ namespace TCPTunnel2
                     else
                     {
                         udpSendQueue.TryDequeue(out addMessage);
+                        Interlocked.Add(ref queuedBytes, -addMessage.length);
                         Array.Copy(addMessage.data, 0, payload.data, payload.length, addMessage.length);
                         payload.length += addMessage.length;
                         Recycler.Release(addMessage);
@@ -280,7 +291,7 @@ namespace TCPTunnel2
                 om.sequence = sendSequence++;
                 om.data = GetUDPMessageData(1, om.sequence, payload);
                 //Send it to the correct retransmit queue
-                if (settings.initialRetransmit > 0)
+                if (!efficencyMode && settings.initialRetransmit > 0)
                 {
                     om.sendTime = currentTime + (settings.initialRetransmit * TimeSpan.TicksPerMillisecond);
                     udpDoubleSendQueue.Enqueue(om);
@@ -372,6 +383,7 @@ namespace TCPTunnel2
                     if (bytesRead > 0)
                     {
                         udpSendQueue.Enqueue(Recycler.FromBytes(readBuffer, bytesRead));
+                        Interlocked.Add(ref queuedBytes, bytesRead);
                         udpServer.SendEvent();
                     }
                     else

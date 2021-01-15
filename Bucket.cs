@@ -5,13 +5,13 @@ namespace TCPTunnel2
     public class Bucket
     {
         //How large the bucket is
-        private long bucketMax;
+        public long bucketMax { get; private set; }
         //The last time bytes were requested from the bucket (ticks)
-        private long lastTime;
+        public long lastTime { get; private set; }
         //The rate at which the bucket fills (bytes per second)
-        private long bucketRate;
+        public long bucketRate { get; private set; }
         //The amount of data available in the bucket (kBytes)
-        private long bucketBytes;
+        public long bucketBytes { get; private set; }
         private Bucket parent;
 
         public Bucket(long bucketMax, long bucketRate, Bucket parent)
