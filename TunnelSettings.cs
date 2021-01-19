@@ -6,7 +6,7 @@ namespace TCPTunnel2
 {
     public class TunnelSettings
     {
-        public string tunnelServer = "godarklight.privatedns.org:56552";
+        public string tunnelServer = "derserver.privatedns.org:56552";
         public int tcpPort = 25565;
         public int udpPort = 56552;
         //Max connections
